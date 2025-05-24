@@ -1,0 +1,74 @@
+{{/* Tell Intellij/GoLand to enable the autocompletion based on the *gen.Graph type. */}}
+{{/* gotype: entgo.io/ent/entc/gen.Graph */}}
+
+{{ define "views" }}
+
+{{/* Add the base header for the generated file */}}
+{{ $pkg := base $.Config.Package }}
+{{ template "header" $ }}
+
+type (
+{{- range $i, $role := $.Annotations.Roles }}
+    {{ $role.PrivateName }} struct{}
+{{- end }}
+)
+var (
+{{- range $i, $role := $.Annotations.Roles }}
+    {{ $role.PublicName }} = {{ $role.PrivateName }}{}
+{{- end }}
+)
+{{- range $n := $.Nodes }}
+    {{- if $n.IsView }}
+        {{ continue }}
+    {{- end }}
+
+    type {{ $n.Name }}Roles interface { 
+        {{ range $i, $role := $n.Annotations.Roles }} {{- if $i }} | {{ end }}{{ $role.PrivateName }} {{- end }}
+    }
+    
+    {{ $receiver := $n.Receiver }}
+    func View{{ $n.Name }}As[K {{ $n.Name }}Roles]({{$receiver}} *{{ $n.Name }}, role K) *{{ $n.Name }} {
+        if {{$receiver}} == nil {
+            return nil
+        }
+        
+        switch any(role).(type) {
+            {{- range $v := $n.Annotations.Roles }}
+            case {{ $v.PrivateName }}:
+                return &{{ $n.Name }} {
+                {{- if $n.HasOneFieldID }}
+                    ID: {{$receiver}}.ID,
+                {{- end }}
+                {{- range $f := $v.Fields }}
+                    {{ $f.StructField }}: {{ $receiver }}.{{ $f.StructField }},
+                {{- end }}
+                {{- if len $n.Edges }}
+                    Edges: {{ $n.Name }}Edges{
+                    {{- range $e := $n.Edges }}
+                        {{ $e.StructField  }}: View{{ $e.Type.Name }}{{ if not $e.Unique }}List{{ end }}As({{ $receiver }}.Edges.{{ $e.StructField  }}, role),
+                    {{- end }}
+                    },
+                {{- end }}
+                }
+            {{- end }}
+            default:
+                log.Fatalf("role not found to view {{ $n.Name }} as %T", role)
+        }
+
+        return nil
+    }
+
+    func View{{ $n.Name }}ListAs[K {{ $n.Name }}Roles]({{$receiver}} []*{{ $n.Name }}, role K) []*{{ $n.Name }} {
+        if len({{$receiver}}) == 0 {
+            return nil
+        }
+        views := make([]*{{ $n.Name }}, len({{$receiver}}))
+        for i, v := range {{$receiver}} {
+            views[i] = View{{ $n.Name }}As(v, role)
+        }
+        return views
+    }
+
+{{ end }}
+
+{{ end }}
