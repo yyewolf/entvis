@@ -58,7 +58,12 @@ func GenerateRolesForModels() gen.Hook {
 
 				var modelMappedRoles = make(map[string]*ModelRole)
 
-				for _, field := range node.Fields {
+				fields := node.Fields
+				if node.ID != nil {
+					fields = append([](*gen.Field){node.ID}, fields...)
+				}
+
+				for _, field := range fields {
 					iVisibility, found := field.Annotations[VisibilityAnnotationName]
 					if !found {
 						continue
@@ -93,6 +98,39 @@ func GenerateRolesForModels() gen.Hook {
 				var roles []*ModelRole
 				for _, roleKey := range slices.Sorted(maps.Keys(modelMappedRoles)) {
 					roles = append(roles, modelMappedRoles[roleKey])
+				}
+
+				node.Annotations.Set(RolesAnnotationName, roles)
+			}
+
+			// For fields that don't have any visibility annotations
+			// we add them to every role.
+			for _, node := range g.Nodes {
+				if node.IsView() {
+					continue
+				}
+
+				var modelMappedRoles = make(map[string]*ModelRole)
+				rolesSlice, _ := node.Annotations[RolesAnnotationName].([]*ModelRole)
+
+				for _, role := range rolesSlice {
+					modelMappedRoles[role.PublicName] = role
+				}
+
+				// Add the missing roles to the slice
+				for _, role := range allRoles {
+					if _, found := modelMappedRoles[role.PublicName]; !found {
+						modelMappedRoles[role.PublicName] = &ModelRole{
+							PrivateName: role.PrivateName,
+							PublicName:  role.PublicName,
+						}
+					}
+				}
+
+				// Update the node's roles annotation
+				var roles []*ModelRole
+				for _, role := range slices.Sorted(maps.Keys(modelMappedRoles)) {
+					roles = append(roles, modelMappedRoles[role])
 				}
 
 				node.Annotations.Set(RolesAnnotationName, roles)

@@ -36,9 +36,6 @@ var (
             {{- range $v := $n.Annotations.Roles }}
             case {{ $v.PrivateName }}:
                 return &{{ $n.Name }} {
-                {{- if $n.HasOneFieldID }}
-                    ID: {{$receiver}}.ID,
-                {{- end }}
                 {{- range $f := $v.Fields }}
                     {{ $f.StructField }}: {{ $receiver }}.{{ $f.StructField }},
                 {{- end }}

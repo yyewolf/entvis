@@ -17,11 +17,11 @@ func (User) Fields() []ent.Field {
 	return []ent.Field{
 		field.String("id").
 			Annotations(
-				entvis.Visibility("self", "admin", "public"),
+				entvis.Visibility("self", "admin"),
 			),
 		field.String("selected_card_id").
 			Annotations(
-				entvis.Visibility("self", "admin"),
+				entvis.Visibility("self", "admin", "public"),
 			).
 			Optional(),
 	}

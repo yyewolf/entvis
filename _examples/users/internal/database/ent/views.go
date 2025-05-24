@@ -5,16 +5,19 @@ package ent
 import "log"
 
 type (
-	admin struct{}
-	self  struct{}
+	admin  struct{}
+	public struct{}
+	self   struct{}
 )
 
 var (
-	Admin = admin{}
-	Self  = self{}
+	Admin  = admin{}
+	Public = public{}
+	Self   = self{}
 )
 
 type CardRoles interface {
+	admin | public | self
 }
 
 func ViewCardAs[K CardRoles](c *Card, role K) *Card {
@@ -23,6 +26,30 @@ func ViewCardAs[K CardRoles](c *Card, role K) *Card {
 	}
 
 	switch any(role).(type) {
+	case admin:
+		return &Card{
+			Edges: CardEdges{
+				OwnedBy:             ViewUserAs(c.Edges.OwnedBy, role),
+				FavedUsers:          ViewUserListAs(c.Edges.FavedUsers, role),
+				PlayerFavoriteCards: ViewPlayerFavoriteCardsListAs(c.Edges.PlayerFavoriteCards, role),
+			},
+		}
+	case public:
+		return &Card{
+			Edges: CardEdges{
+				OwnedBy:             ViewUserAs(c.Edges.OwnedBy, role),
+				FavedUsers:          ViewUserListAs(c.Edges.FavedUsers, role),
+				PlayerFavoriteCards: ViewPlayerFavoriteCardsListAs(c.Edges.PlayerFavoriteCards, role),
+			},
+		}
+	case self:
+		return &Card{
+			Edges: CardEdges{
+				OwnedBy:             ViewUserAs(c.Edges.OwnedBy, role),
+				FavedUsers:          ViewUserListAs(c.Edges.FavedUsers, role),
+				PlayerFavoriteCards: ViewPlayerFavoriteCardsListAs(c.Edges.PlayerFavoriteCards, role),
+			},
+		}
 	default:
 		log.Fatalf("role not found to view Card as %T", role)
 	}
@@ -42,7 +69,7 @@ func ViewCardListAs[K CardRoles](c []*Card, role K) []*Card {
 }
 
 type LightRoles interface {
-	admin | self
+	admin | public | self
 }
 
 func ViewLightAs[K LightRoles](l *Light, role K) *Light {
@@ -53,12 +80,12 @@ func ViewLightAs[K LightRoles](l *Light, role K) *Light {
 	switch any(role).(type) {
 	case admin:
 		return &Light{
-			ID:           l.ID,
 			PrivateField: l.PrivateField,
 		}
+	case public:
+		return &Light{}
 	case self:
 		return &Light{
-			ID:           l.ID,
 			PrivateField: l.PrivateField,
 		}
 	default:
@@ -80,6 +107,7 @@ func ViewLightListAs[K LightRoles](l []*Light, role K) []*Light {
 }
 
 type PlayerFavoriteCardsRoles interface {
+	admin | public | self
 }
 
 func ViewPlayerFavoriteCardsAs[K PlayerFavoriteCardsRoles](pfc *PlayerFavoriteCards, role K) *PlayerFavoriteCards {
@@ -88,6 +116,27 @@ func ViewPlayerFavoriteCardsAs[K PlayerFavoriteCardsRoles](pfc *PlayerFavoriteCa
 	}
 
 	switch any(role).(type) {
+	case admin:
+		return &PlayerFavoriteCards{
+			Edges: PlayerFavoriteCardsEdges{
+				User: ViewUserAs(pfc.Edges.User, role),
+				Card: ViewCardAs(pfc.Edges.Card, role),
+			},
+		}
+	case public:
+		return &PlayerFavoriteCards{
+			Edges: PlayerFavoriteCardsEdges{
+				User: ViewUserAs(pfc.Edges.User, role),
+				Card: ViewCardAs(pfc.Edges.Card, role),
+			},
+		}
+	case self:
+		return &PlayerFavoriteCards{
+			Edges: PlayerFavoriteCardsEdges{
+				User: ViewUserAs(pfc.Edges.User, role),
+				Card: ViewCardAs(pfc.Edges.Card, role),
+			},
+		}
 	default:
 		log.Fatalf("role not found to view PlayerFavoriteCards as %T", role)
 	}
@@ -107,7 +156,7 @@ func ViewPlayerFavoriteCardsListAs[K PlayerFavoriteCardsRoles](pfc []*PlayerFavo
 }
 
 type UserRoles interface {
-	admin | self
+	admin | public | self
 }
 
 func ViewUserAs[K UserRoles](u *User, role K) *User {
@@ -119,6 +168,16 @@ func ViewUserAs[K UserRoles](u *User, role K) *User {
 	case admin:
 		return &User{
 			ID:             u.ID,
+			SelectedCardID: u.SelectedCardID,
+			Edges: UserEdges{
+				Cards:               ViewCardListAs(u.Edges.Cards, role),
+				FavoriteCards:       ViewCardListAs(u.Edges.FavoriteCards, role),
+				SelectedCard:        ViewCardAs(u.Edges.SelectedCard, role),
+				PlayerFavoriteCards: ViewPlayerFavoriteCardsListAs(u.Edges.PlayerFavoriteCards, role),
+			},
+		}
+	case public:
+		return &User{
 			SelectedCardID: u.SelectedCardID,
 			Edges: UserEdges{
 				Cards:               ViewCardListAs(u.Edges.Cards, role),
